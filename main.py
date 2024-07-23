@@ -1,39 +1,124 @@
+import sys
+
 import pygame
+from sys import exit
 from random import randint
 
-pygame.init()
 
-WIDTH, HEIGHT = 1280, 720
+class Player:
+    def __init__(self, parent):
+        self.image = pygame.image.load("images/player.png")
+        self.rect = self.image.get_rect()
+        self.rect.center = (parent.width // 2, parent.height // 2)
+        self.direction = pygame.math.Vector2(1, 1)
 
-pygame.display.set_caption("Game")
-win = pygame.display.set_mode((WIDTH, HEIGHT))
-clock = pygame.time.Clock()
+        self.speed = 20
 
-running = True
+    def controls(self):
+        keys = pygame.key.get_pressed()
+        self.direction.x = int(keys[pygame.K_d]) - int(keys[pygame.K_a])
+        self.direction.y = int(keys[pygame.K_s]) - int(keys[pygame.K_w])
 
-player = pygame.image.load("images/player.png").convert_alpha()
-player_rect = player.get_rect(center=(WIDTH/2, HEIGHT/2))
+        if self.rect.left < 0:
+            self.rect.left = 0
+        if self.rect.right > 1280:
+            self.rect.right = 1280
+        if self.rect.top < 0:
+            self.rect.top = 0
+        if self.rect.bottom > 720:
+            self.rect.bottom = 720
 
-stars = pygame.image.load('images/star.png').convert_alpha()
-star_pos = [(randint(0, WIDTH), randint(0, HEIGHT)) for _ in range(20)]
+    def draw(self, win):
+        win.blit(self.image, self.rect.topleft)
 
-while running:
-    clock.tick(60)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-            pygame.quit()
+    def update(self, win):
+        self.rect.x += self.direction.x * self.speed
+        self.rect.y += self.direction.y * self.speed
+        self.controls()
+        self.draw(win)
 
-    keys = pygame.key.get_pressed()
-    if keys[pygame.K_a]:
-        player_rect.x -= 5
-    if keys[pygame.K_d]:
-        player_rect.x += 5
 
-    win.fill('darkgray')
-    for star in star_pos:
-        win.blit(stars, star)
+class Meteor:
+    def __init__(self):
+        self.image = pygame.image.load('images/meteor.png')
+        self.rect = self.image.get_rect()
 
-    win.blit(player, (player_rect))
+    def draw(self, win):
+        self.rect.y += 10
+        win.blit(self.image, self.rect.topleft)
 
-    pygame.display.update()
+
+class Star:
+    def __init__(self, location):
+        self.image = pygame.image.load('images/star.png')
+        self.pos = location
+
+    def draw(self, win):
+        win.blit(self.image, self.pos)
+
+
+class Laser:
+    def __init__(self, pos):
+        self.image = pygame.image.load('images/laser.png')
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+
+    def draw(self, win):
+        self.rect.y -= 5
+        win.blit(self.image, self.rect.topleft)
+
+
+class Game:
+    def __init__(self):
+        pygame.init()
+
+        self.width = 1280
+        self.height = 720
+        self.win = pygame.display.set_mode((self.width, self.height))
+
+        self.mixer = pygame.mixer
+
+        self.clock = pygame.time.Clock()
+        self.dt = 0
+
+        self.player = Player(self)
+
+        self.meteors = []
+        self.stars = [Star((randint(0, self.width), randint(0, self.height))) for _ in range(10)]
+        self.laser = None
+
+        self.running = False
+
+    def run(self):
+        self.running = True
+
+        while self.running:
+            self.clock.tick(60)
+            self.win.fill('darkgray')
+
+            for star in self.stars:
+                star.draw(self.win)
+
+            if self.laser is not None:
+                if self.laser.rect.y < 0:
+                    self.laser = None
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and not self.laser:
+                        self.laser = Laser(self.player.rect.center)
+
+            if self.laser:
+                self.laser.draw(self.win)
+
+            self.player.update(self.win)
+
+            pygame.display.flip()
+
+
+game = Game()
+game.run()
